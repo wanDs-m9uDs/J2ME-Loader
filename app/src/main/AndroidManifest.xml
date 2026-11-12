@@ -128,6 +128,22 @@
             android:theme="@style/AppTheme.NoActionBar"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
             android:process=":midlet" />
+        <activity
+            android:name="javax.microedition.shell.MicroActivity1"
+            android:exported="false"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.midlet1"
+            android:process=":midlet1" />
+        <activity
+            android:name="javax.microedition.shell.MicroActivity2"
+            android:exported="false"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.midlet2"
+            android:process=":midlet2" />
         <activity android:name=".settings.SettingsActivity"
             android:exported="false">
             <intent-filter>

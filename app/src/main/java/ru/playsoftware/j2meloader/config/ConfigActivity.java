@@ -76,7 +76,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import javax.microedition.shell.MicroActivity;
 import javax.microedition.util.ContextHolder;
 
 import ru.playsoftware.j2meloader.R;
@@ -85,6 +84,8 @@ import ru.playsoftware.j2meloader.databinding.ActivityConfigBinding;
 import ru.playsoftware.j2meloader.databinding.DialogChangePresetBinding;
 import ru.playsoftware.j2meloader.settings.KeyMapperActivity;
 import ru.playsoftware.j2meloader.util.FileUtils;
+import ru.playsoftware.j2meloader.util.DataSnapshots;
+import ru.playsoftware.j2meloader.util.MidletSlots;
 import yuku.ambilwarna.AmbilWarnaDialog;
 
 public class ConfigActivity extends BaseActivity implements View.OnClickListener, ShaderTuneDialog.Callback {
@@ -408,6 +409,7 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			//noinspection ResultOfMethodCallIgnored
 			dir.mkdirs();
 		}
+		BundledShaders.install(this, dir);
 		ArrayList<ShaderInfo> list = new ArrayList<>();
 		spShaderAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, list);
 		spShaderAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -810,6 +812,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		if (isProfile) {
 			menu.findItem(R.id.action_start).setVisible(false);
 			menu.findItem(R.id.action_clear_data).setVisible(false);
+			menu.findItem(R.id.action_snapshot_save).setVisible(false);
+			menu.findItem(R.id.action_snapshot_restore).setVisible(false);
 		}
 		return super.onCreateOptionsMenu(menu);
 	}
@@ -821,6 +825,10 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			startMIDlet();
 		} else if (itemId == R.id.action_clear_data) {
 			showClearDataDialog();
+		} else if (itemId == R.id.action_snapshot_save) {
+			saveSnapshot(null);
+		} else if (itemId == R.id.action_snapshot_restore) {
+			showRestoreSnapshotDialog();
 		} else if (itemId == R.id.action_reset_settings) {
 			params = new ProfileModel(configDir);
 			loadParams(false);
@@ -849,9 +857,69 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 		builder.show();
 	}
 
+	private File snapshotsDir() {
+		return new File(workDir + "/snapshots/" + dataDir.getName());
+	}
+
+	private void saveSnapshot(String prefix) {
+		File dir = snapshotsDir();
+		new Thread(() -> {
+			try {
+				File f = DataSnapshots.create(dataDir, dir, prefix);
+				runOnUiThread(() -> Toast.makeText(this,
+						getString(R.string.msg_snapshot_saved, f.getName()), Toast.LENGTH_SHORT).show());
+			} catch (IOException | RuntimeException e) {
+				Log.e(TAG, "saveSnapshot: ", e);
+				runOnUiThread(() -> Toast.makeText(this,
+						getString(R.string.msg_snapshot_failed, e.getMessage()), Toast.LENGTH_LONG).show());
+			}
+		}).start();
+	}
+
+	private void showRestoreSnapshotDialog() {
+		File[] snapshots = DataSnapshots.list(snapshotsDir());
+		if (snapshots.length == 0) {
+			Toast.makeText(this, R.string.msg_snapshot_none, Toast.LENGTH_SHORT).show();
+			return;
+		}
+		String[] names = new String[snapshots.length];
+		for (int i = 0; i < snapshots.length; i++) {
+			names[i] = snapshots[i].getName().replaceAll("\\.zip$", "")
+					+ "  (" + (snapshots[i].length() / 1024) + " KB)";
+		}
+		new AlertDialog.Builder(this)
+				.setTitle(R.string.snapshot_restore_cmd)
+				.setItems(names, (d, which) -> new AlertDialog.Builder(this)
+						.setTitle(android.R.string.dialog_alert_title)
+						.setMessage(R.string.msg_snapshot_restore_confirm)
+						.setPositiveButton(android.R.string.ok, (d2, w2) -> restoreSnapshot(snapshots[which]))
+						.setNegativeButton(android.R.string.cancel, null)
+						.show())
+				.setNegativeButton(android.R.string.cancel, null)
+				.show();
+	}
+
+	private void restoreSnapshot(File snapshot) {
+		File dir = snapshotsDir();
+		new Thread(() -> {
+			try {
+				DataSnapshots.create(dataDir, dir, "before-restore");
+				DataSnapshots.restore(snapshot, dataDir);
+				runOnUiThread(() -> Toast.makeText(this, R.string.msg_snapshot_restored, Toast.LENGTH_SHORT).show());
+			} catch (IOException | RuntimeException e) {
+				Log.e(TAG, "restoreSnapshot: ", e);
+				runOnUiThread(() -> Toast.makeText(this,
+						getString(R.string.msg_snapshot_failed, e.getMessage()), Toast.LENGTH_LONG).show());
+			}
+		}).start();
+	}
+
 	private void startMIDlet() {
-		Intent i = new Intent(this, MicroActivity.class);
-		i.setData(getIntent().getData());
+		Intent i = MidletSlots.createIntent(this, null, getIntent().getData());
+		if (i == null) {
+			Toast.makeText(this, R.string.msg_all_game_slots_busy, Toast.LENGTH_LONG).show();
+			return;
+		}
 		i.putExtra(KEY_MIDLET_NAME, getIntent().getStringExtra(KEY_MIDLET_NAME));
 		startActivity(i);
 		finish();

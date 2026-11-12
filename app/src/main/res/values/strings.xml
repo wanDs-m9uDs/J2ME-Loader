@@ -69,6 +69,14 @@
     <string name="START_CMD">Start</string>
     <string name="CANCEL_CMD">Cancel</string>
     <string name="CLEAR_DATA_CMD">Clear data</string>
+    <string name="snapshot_save_cmd">Save data snapshot</string>
+    <string name="snapshot_restore_cmd">Restore data snapshot</string>
+    <string name="msg_snapshot_saved">Snapshot saved: %s</string>
+    <string name="msg_snapshot_none">No snapshots for this game yet.</string>
+    <string name="msg_snapshot_failed">Snapshot failed: %s</string>
+    <string name="msg_snapshot_restored">Data restored from snapshot.</string>
+    <string name="msg_snapshot_restore_confirm">Replace the current save data with this snapshot? A snapshot of the current data is saved first. Close the game before restoring.</string>
+    <string name="msg_all_game_slots_busy">All game slots are in use. Close a running game first.</string>
     <string name="RESET_SETTINGS_CMD">Reset settings</string>
     <string name="RESET_LAYOUT_CMD">Reset keylayout</string>
     <string name="load_profile">Load profile</string>
@@ -162,6 +170,7 @@
     <string name="pref_screen_scale_type_fill">Fill window (ignore aspect ratio)</string>
     <string name="pref_screen_scale_type_fit">Fit to window</string>
     <string name="pref_screen_scale_type_none">As is</string>
+    <string name="pref_screen_scale_type_integer">Integer scale (pixel perfect)</string>
     <string name="pref_vk_hide_hint">disabled</string>
     <string name="unlimited">unlimited</string>
     <string name="parallel_screen_redrawing">Parallel screen redrawing</string>

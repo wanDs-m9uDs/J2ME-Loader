@@ -427,6 +427,26 @@ public abstract class Canvas extends Displayable {
 					scaleRatio = 100;
 				}
 				break;
+			case 3: {
+				// integer scaling (pixel perfect): the biggest whole multiple that fits
+				int k = Math.min(displayWidth / width, scaledDisplayHeight / height);
+				if (k >= 1) {
+					onWidth = width * k;
+					onHeight = height * k;
+				} else {
+					// canvas is bigger than the screen: fall back to "fit to window"
+					onWidth = displayWidth;
+					onHeight = height * displayWidth / width;
+					if (onHeight > scaledDisplayHeight) {
+						onHeight = scaledDisplayHeight;
+						onWidth = width * scaledDisplayHeight / height;
+					}
+				}
+				if (scaleRatio > 100) {
+					scaleRatio = 100;
+				}
+				break;
+			}
 		}
 
 		onWidth = onWidth * scaleRatio / 100;

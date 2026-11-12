@@ -27,13 +27,13 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Environment;
+import android.widget.Toast;
 
 import androidx.annotation.Keep;
 import androidx.preference.PreferenceManager;
 
 import java.io.File;
 
-import javax.microedition.shell.MicroActivity;
 import javax.microedition.util.ContextHolder;
 
 import ru.playsoftware.j2meloader.BuildConfig;
@@ -42,6 +42,7 @@ import ru.playsoftware.j2meloader.R;
 import static ru.playsoftware.j2meloader.util.Constants.*;
 
 import ru.playsoftware.j2meloader.util.FileUtils;
+import ru.playsoftware.j2meloader.util.MidletSlots;
 
 public class Config {
 	public static final String DEX_OPT_CACHE_DIR = "dex_opt";
@@ -148,8 +149,11 @@ public class Config {
 			intent.putExtra(KEY_START_ARGUMENTS, arguments);
 			context.startActivity(intent);
 		} else {
-			Intent intent = new Intent(Intent.ACTION_DEFAULT, Uri.parse(path),
-					context, MicroActivity.class);
+			Intent intent = MidletSlots.createIntent(context, Intent.ACTION_DEFAULT, Uri.parse(path));
+			if (intent == null) {
+				Toast.makeText(context, R.string.msg_all_game_slots_busy, Toast.LENGTH_LONG).show();
+				return;
+			}
 			intent.putExtra(KEY_MIDLET_NAME, name);
 			intent.putExtra(KEY_START_ARGUMENTS, arguments);
 			context.startActivity(intent);

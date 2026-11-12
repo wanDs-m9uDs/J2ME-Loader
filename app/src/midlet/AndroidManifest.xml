@@ -13,6 +13,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name="javax.microedition.shell.MicroActivity1" tools:node="remove" />
+        <activity android:name="javax.microedition.shell.MicroActivity2" tools:node="remove" />
         <activity android:name=".settings.SettingsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.APPLICATION_PREFERENCES" />

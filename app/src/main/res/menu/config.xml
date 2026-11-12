@@ -10,6 +10,14 @@
         android:title="@string/CLEAR_DATA_CMD"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_snapshot_save"
+        android:title="@string/snapshot_save_cmd"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_snapshot_restore"
+        android:title="@string/snapshot_restore_cmd"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_reset_settings"
         android:title="@string/RESET_SETTINGS_CMD"
         app:showAsAction="never" />
