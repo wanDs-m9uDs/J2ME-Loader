@@ -210,11 +210,11 @@ public final class MidletSlots {
 		Intent intent = action == null ? new Intent(context, SLOTS[slot])
 				: new Intent(action, data, context, SLOTS[slot]);
 		intent.setData(data);
-		if (slot > 0) {
-			// extra slots live in their own task (see taskAffinity in the manifest)
-			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-		} else if (resume >= 0) {
-			// the game is already running in the original slot: just bring it to the front
+		// every slot lives in its own task (see taskAffinity in the manifest), so the game list
+		// stays reachable while a game is running and the user can start another one
+		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		if (resume >= 0) {
+			// the game is already running: just bring it back to the front
 			intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		}
 		return intent;

@@ -6,7 +6,7 @@
         <activity android:name=".MainActivity" tools:node="remove" />
         <activity android:name="javax.microedition.shell.MicroActivity"
             android:exported="true"
-            tools:remove="android:process"
+            tools:remove="android:process, android:taskAffinity, android:launchMode"
             tools:replace="android:exported">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
