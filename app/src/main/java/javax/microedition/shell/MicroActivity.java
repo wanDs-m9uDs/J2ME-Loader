@@ -139,6 +139,7 @@ public class MicroActivity extends AppCompatActivity {
 		setContentView(view);
 		setSupportActionBar(binding.toolbar);
 		if (BuildConfig.FULL_EMULATOR && MidletSlots.slotOf(getClass()) >= 0) {
+			MidletSlots.registerProcess(this, MidletSlots.slotOf(getClass()));
 			slotTabs = new SlotTabBar(this);
 			slotTabs.attach();
 		}

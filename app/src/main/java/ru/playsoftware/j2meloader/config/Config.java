@@ -156,6 +156,9 @@ public class Config {
 			}
 			intent.putExtra(KEY_MIDLET_NAME, name);
 			intent.putExtra(KEY_START_ARGUMENTS, arguments);
+			if (BuildConfig.DEBUG) {
+				Toast.makeText(context, MidletSlots.lastDebug, Toast.LENGTH_SHORT).show();
+			}
 			context.startActivity(intent);
 		}
 	}

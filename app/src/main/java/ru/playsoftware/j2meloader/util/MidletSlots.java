@@ -67,6 +67,9 @@ public final class MidletSlots {
 		}
 	}
 
+	/** Human readable result of the last slot choice, shown as a toast in debug builds. */
+	public static volatile String lastDebug = "";
+
 	private MidletSlots() {
 	}
 
@@ -94,6 +97,57 @@ public final class MidletSlots {
 			}
 		}
 		return result;
+	}
+
+	private static File pidFile(Context context, int slot) {
+		return new File(context.getFilesDir(), "midlet_slot" + slot + ".pid");
+	}
+
+	/** Called by a game process on startup so other processes can tell that it is alive. */
+	public static void registerProcess(Context context, int slot) {
+		if (slot < 0 || slot >= SLOTS.length) {
+			return;
+		}
+		try (Writer w = new OutputStreamWriter(new FileOutputStream(pidFile(context, slot)), StandardCharsets.UTF_8)) {
+			w.write(String.valueOf(android.os.Process.myPid()));
+		} catch (IOException ignored) {
+			// the ActivityManager check below still works
+		}
+	}
+
+	private static boolean pidAlive(Context context, int slot) {
+		File f = pidFile(context, slot);
+		if (!f.isFile()) {
+			return false;
+		}
+		try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
+			String pid = r.readLine();
+			if (pid == null) {
+				return false;
+			}
+			File cmd = new File("/proc/" + pid.trim() + "/cmdline");
+			if (!cmd.isFile()) {
+				return false;
+			}
+			try (BufferedReader c = new BufferedReader(new InputStreamReader(new FileInputStream(cmd), StandardCharsets.UTF_8))) {
+				String name = c.readLine();
+				// the cmdline is NUL terminated; compare with the expected process name
+				return name != null && name.startsWith(context.getPackageName() + PROCESS_SUFFIX[slot]);
+			}
+		} catch (IOException | RuntimeException e) {
+			return false;
+		}
+	}
+
+	/** Which slots have a live game process right now. */
+	private static boolean[] aliveSlots(Context context) {
+		Set<String> byManager = runningProcesses(context);
+		String pkg = context.getPackageName();
+		boolean[] alive = new boolean[SLOTS.length];
+		for (int i = 0; i < alive.length; i++) {
+			alive[i] = byManager.contains(pkg + PROCESS_SUFFIX[i]) || pidAlive(context, i);
+		}
+		return alive;
 	}
 
 	private static File tableFile(Context context) {
@@ -156,11 +210,10 @@ public final class MidletSlots {
 	@NonNull
 	public static List<Info> running(Context context) {
 		Info[] table = readTable(context);
-		Set<String> alive = runningProcesses(context);
-		String pkg = context.getPackageName();
+		boolean[] alive = aliveSlots(context);
 		List<Info> result = new ArrayList<>();
 		for (int i = 0; i < table.length; i++) {
-			if (table[i] != null && alive.contains(pkg + PROCESS_SUFFIX[i])) {
+			if (table[i] != null && alive[i]) {
 				result.add(table[i]);
 			}
 		}
@@ -184,12 +237,11 @@ public final class MidletSlots {
 	public static Intent createIntent(Context context, @Nullable String action, Uri data, @Nullable String name) {
 		String path = data.toString();
 		Info[] table = readTable(context);
-		Set<String> alive = runningProcesses(context);
-		String pkg = context.getPackageName();
+		boolean[] alive = aliveSlots(context);
 		int free = -1;
 		int resume = -1;
 		for (int i = 0; i < SLOTS.length; i++) {
-			boolean isAlive = alive.contains(pkg + PROCESS_SUFFIX[i]);
+			boolean isAlive = alive[i];
 			if (isAlive) {
 				if (table[i] != null && path.equals(table[i].path)) {
 					resume = i;
@@ -200,6 +252,8 @@ public final class MidletSlots {
 			}
 		}
 		int slot = resume >= 0 ? resume : free;
+		lastDebug = "slot " + slot + (resume >= 0 ? " (resume)" : "") + ", running: "
+				+ java.util.Arrays.toString(alive);
 		if (slot < 0) {
 			return null;
 		}

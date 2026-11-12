@@ -922,6 +922,9 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 			return;
 		}
 		i.putExtra(KEY_MIDLET_NAME, getIntent().getStringExtra(KEY_MIDLET_NAME));
+		if (ru.playsoftware.j2meloader.BuildConfig.DEBUG) {
+			Toast.makeText(this, MidletSlots.lastDebug, Toast.LENGTH_SHORT).show();
+		}
 		startActivity(i);
 		finish();
 	}
