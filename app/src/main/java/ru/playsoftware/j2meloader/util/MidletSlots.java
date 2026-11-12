@@ -14,14 +14,26 @@
 
 package ru.playsoftware.j2meloader.util;
 
+import static ru.playsoftware.j2meloader.util.Constants.KEY_MIDLET_NAME;
+
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,18 +47,41 @@ import javax.microedition.shell.MicroActivity2;
  * a MIDlet should be started in, so that several games can run at once.
  *
  * Slot 0 is the original MicroActivity (process ":midlet"), slots 1 and 2 are extra.
- * Only the main process calls this class, so plain SharedPreferences are safe here.
+ * Only the main process writes the slot table (a small text file), every process may read it.
  */
 public final class MidletSlots {
-	private static final String PREFS = "midlet_slots";
+	private static final String FILE_NAME = "midlet_slots.txt";
 	private static final Class<?>[] SLOTS = {MicroActivity.class, MicroActivity1.class, MicroActivity2.class};
 	private static final String[] PROCESS_SUFFIX = {":midlet", ":midlet1", ":midlet2"};
+
+	/** A game currently running in a slot. */
+	public static final class Info {
+		public final int slot;
+		public final String name;
+		public final String path;
+
+		Info(int slot, String name, String path) {
+			this.slot = slot;
+			this.name = name;
+			this.path = path;
+		}
+	}
 
 	private MidletSlots() {
 	}
 
 	public static int count() {
 		return SLOTS.length;
+	}
+
+	/** Slot number of the given activity class, or -1 if it is not a game slot. */
+	public static int slotOf(Class<?> activityClass) {
+		for (int i = 0; i < SLOTS.length; i++) {
+			if (SLOTS[i] == activityClass) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private static Set<String> runningProcesses(Context context) {
@@ -61,24 +96,102 @@ public final class MidletSlots {
 		return result;
 	}
 
+	private static File tableFile(Context context) {
+		return new File(context.getFilesDir(), FILE_NAME);
+	}
+
+	/** Reads the slot table: one entry (or null) per slot. */
+	private static Info[] readTable(Context context) {
+		Info[] table = new Info[SLOTS.length];
+		File f = tableFile(context);
+		if (!f.isFile()) {
+			return table;
+		}
+		try (BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
+			String line;
+			while ((line = r.readLine()) != null) {
+				String[] p = line.split("\t", 3);
+				if (p.length < 3) {
+					continue;
+				}
+				int slot = Integer.parseInt(p[0]);
+				if (slot >= 0 && slot < table.length) {
+					table[slot] = new Info(slot, p[1], p[2]);
+				}
+			}
+		} catch (IOException | NumberFormatException ignored) {
+			// a broken table is treated as empty
+		}
+		return table;
+	}
+
+	private static void writeTable(Context context, Info[] table) {
+		File f = tableFile(context);
+		File tmp = new File(f.getParentFile(), FILE_NAME + ".tmp");
+		try (Writer w = new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8)) {
+			for (Info i : table) {
+				if (i != null) {
+					w.write(i.slot + "\t" + i.name + "\t" + i.path + "\n");
+				}
+			}
+		} catch (IOException e) {
+			return;
+		}
+		//noinspection ResultOfMethodCallIgnored
+		tmp.renameTo(f);
+	}
+
+	private static String cleanName(@Nullable String name, String path) {
+		String n = name;
+		if (n == null || n.trim().isEmpty()) {
+			n = Uri.parse(path).getLastPathSegment();
+		}
+		if (n == null) {
+			n = "?";
+		}
+		return n.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ').trim();
+	}
+
+	/** Games that are running right now, ordered by slot. Safe to call from any process. */
+	@NonNull
+	public static List<Info> running(Context context) {
+		Info[] table = readTable(context);
+		Set<String> alive = runningProcesses(context);
+		String pkg = context.getPackageName();
+		List<Info> result = new ArrayList<>();
+		for (int i = 0; i < table.length; i++) {
+			if (table[i] != null && alive.contains(pkg + PROCESS_SUFFIX[i])) {
+				result.add(table[i]);
+			}
+		}
+		return result;
+	}
+
+	/** True if at least one slot is not occupied. */
+	public static boolean hasFreeSlot(Context context) {
+		return running(context).size() < SLOTS.length;
+	}
+
 	/**
 	 * Builds the intent that starts (or brings back) the MIDlet at {@code data}.
+	 * Call from the main process only.
 	 *
 	 * @param action may be null
+	 * @param name   display name of the game, shown on the tab
 	 * @return the intent, or null when every slot is occupied by another game
 	 */
 	@Nullable
-	public static Intent createIntent(Context context, @Nullable String action, Uri data) {
+	public static Intent createIntent(Context context, @Nullable String action, Uri data, @Nullable String name) {
 		String path = data.toString();
-		SharedPreferences sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-		Set<String> running = runningProcesses(context);
+		Info[] table = readTable(context);
+		Set<String> alive = runningProcesses(context);
 		String pkg = context.getPackageName();
 		int free = -1;
 		int resume = -1;
 		for (int i = 0; i < SLOTS.length; i++) {
-			boolean alive = running.contains(pkg + PROCESS_SUFFIX[i]);
-			if (alive) {
-				if (path.equals(sp.getString("slot" + i, null))) {
+			boolean isAlive = alive.contains(pkg + PROCESS_SUFFIX[i]);
+			if (isAlive) {
+				if (table[i] != null && path.equals(table[i].path)) {
 					resume = i;
 					break;
 				}
@@ -91,7 +204,8 @@ public final class MidletSlots {
 			return null;
 		}
 		if (resume < 0) {
-			sp.edit().putString("slot" + slot, path).apply();
+			table[slot] = new Info(slot, cleanName(name, path), path);
+			writeTable(context, table);
 		}
 		Intent intent = action == null ? new Intent(context, SLOTS[slot])
 				: new Intent(action, data, context, SLOTS[slot]);
@@ -102,6 +216,26 @@ public final class MidletSlots {
 		} else if (resume >= 0) {
 			// the game is already running in the original slot: just bring it to the front
 			intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		}
+		return intent;
+	}
+
+	/** Intent that brings an already running game to the front (used by the tab bar). */
+	public static Intent switchIntent(Context context, Info info) {
+		Intent intent = new Intent(context, SLOTS[info.slot]);
+		intent.setData(Uri.parse(info.path));
+		intent.putExtra(KEY_MIDLET_NAME, info.name);
+		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+				| Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		return intent;
+	}
+
+	/** Intent that opens the game list so another game can be started. */
+	@Nullable
+	public static Intent appListIntent(Context context) {
+		Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+		if (intent != null) {
+			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		}
 		return intent;
 	}

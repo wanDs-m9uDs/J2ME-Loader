@@ -95,6 +95,7 @@ import ru.playsoftware.j2meloader.R;
 import ru.playsoftware.j2meloader.config.Config;
 import ru.playsoftware.j2meloader.databinding.ActivityMicroBinding;
 import ru.playsoftware.j2meloader.util.Constants;
+import ru.playsoftware.j2meloader.util.MidletSlots;
 import ru.playsoftware.j2meloader.util.LogUtils;
 
 public class MicroActivity extends AppCompatActivity {
@@ -120,6 +121,7 @@ public class MicroActivity extends AppCompatActivity {
 	private String appPath;
 
 	public ActivityMicroBinding binding;
+	private SlotTabBar slotTabs;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -136,6 +138,10 @@ public class MicroActivity extends AppCompatActivity {
 		View view = binding.getRoot();
 		setContentView(view);
 		setSupportActionBar(binding.toolbar);
+		if (BuildConfig.FULL_EMULATOR && MidletSlots.slotOf(getClass()) >= 0) {
+			slotTabs = new SlotTabBar(this);
+			slotTabs.attach();
+		}
 
 		actionBarEnabled = sp.getBoolean(PREF_TOOLBAR, false);
 		statusBarEnabled = sp.getBoolean(PREF_STATUSBAR, false);
@@ -225,6 +231,9 @@ public class MicroActivity extends AppCompatActivity {
 	public void onResume() {
 		super.onResume();
 		visible = true;
+		if (slotTabs != null) {
+			slotTabs.start();
+		}
 		if (!pauseSuppressed) {
 			MidletThread.resumeApp();
 		}
@@ -232,6 +241,9 @@ public class MicroActivity extends AppCompatActivity {
 
 	@Override
 	public void onPause() {
+		if (slotTabs != null) {
+			slotTabs.stop();
+		}
 		hideSoftInput();
 		if (!pauseSuppressed && !pauseDisabled) {
 			visible = false;
@@ -783,6 +795,9 @@ public class MicroActivity extends AppCompatActivity {
 	@Override
 	protected void onDestroy() {
 		// Stop the MIDlet thread explicitly (fixes stuck audio)
+		if (slotTabs != null) {
+			slotTabs.stop();
+		}
 		MidletThread.destroyApp();
 		binding = null;
 		super.onDestroy();

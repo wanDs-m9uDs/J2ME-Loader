@@ -149,7 +149,7 @@ public class Config {
 			intent.putExtra(KEY_START_ARGUMENTS, arguments);
 			context.startActivity(intent);
 		} else {
-			Intent intent = MidletSlots.createIntent(context, Intent.ACTION_DEFAULT, Uri.parse(path));
+			Intent intent = MidletSlots.createIntent(context, Intent.ACTION_DEFAULT, Uri.parse(path), name);
 			if (intent == null) {
 				Toast.makeText(context, R.string.msg_all_game_slots_busy, Toast.LENGTH_LONG).show();
 				return;

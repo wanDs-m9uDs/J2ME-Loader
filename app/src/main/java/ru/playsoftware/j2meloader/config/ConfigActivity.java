@@ -915,7 +915,8 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	}
 
 	private void startMIDlet() {
-		Intent i = MidletSlots.createIntent(this, null, getIntent().getData());
+		Intent i = MidletSlots.createIntent(this, null, getIntent().getData(),
+				getIntent().getStringExtra(KEY_MIDLET_NAME));
 		if (i == null) {
 			Toast.makeText(this, R.string.msg_all_game_slots_busy, Toast.LENGTH_LONG).show();
 			return;
